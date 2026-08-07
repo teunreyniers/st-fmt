@@ -1,0 +1,15 @@
+a := motor . speed;
+b := buffer[ i ];
+c := m[i,j];
+d := m[i][j];
+e := items[ i ].value;
+f := p ^;
+g := p ^ ^;
+h := p ^ . field;
+i := items[i] ^;
+j := input.0;
+k := %ix0.0;
+l := %mw100;
+m := %I*;
+n := this ^ . count;
+o := CmpApp . EVTPARAM_CmpApp;

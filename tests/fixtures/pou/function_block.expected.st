@@ -1,0 +1,12 @@
+FUNCTION_BLOCK FB_Motor
+VAR_INPUT
+    bStart : BOOL;
+END_VAR
+VAR
+    nState : INT;
+END_VAR
+
+IF bStart THEN
+    nState := 1;
+END_IF
+END_FUNCTION_BLOCK

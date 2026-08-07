@@ -1,0 +1,20 @@
+[package]
+name = "st-fmt"
+version = "0.1.0"
+edition = "2024"
+description = "An opinionated formatter for IEC 61131-3 Structured Text"
+license = "MIT"
+
+[lib]
+name = "st_fmt"
+path = "src/lib.rs"
+
+[[bin]]
+name = "st-fmt"
+path = "src/main.rs"
+
+[dependencies]
+tree-sitter = "0.26"
+# Taken from git, pinned to an exact revision for reproducible builds. The
+# crates.io crate of the same name is an unrelated grammar by another author 
+tree-sitter-structured-text = { git = "https://github.com/teunreyniers/tree-sitter-structured-text", rev = "6dc987a58754428717e4ce21deb6fa26289a4b04" }

@@ -1,0 +1,15 @@
+a := x + y;
+b := x - y;
+c := x * y / z;
+d := x MOD y;
+e := x ** y;
+f := x < y;
+g := x <= y;
+h := x = y;
+i := x <> y;
+j := x AND y;
+k := x OR y;
+l := x XOR y;
+m := NOT x;
+n := -x;
+o := NOT (a AND b);
