@@ -12,4 +12,5 @@ IF n > 0 THEN
     n := 2;
     // before END_IF
 END_IF
+
 END_FUNCTION_BLOCK

@@ -12,6 +12,7 @@ CASE nState OF
 ELSE
     y := 0;
 END_CASE
+
 CASE n OF
     1:
         x := 1;

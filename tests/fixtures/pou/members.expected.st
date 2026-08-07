@@ -14,15 +14,16 @@ Run := TRUE;
 END_METHOD
 
 PROPERTY Speed : REAL
-GET
-Speed := 1.0;
-END_GET
-SET
-;
-END_SET
+    GET
+        Speed := 1.0;
+    END_GET
+    SET
+        ;
+    END_SET
 END_PROPERTY
 
 ACTION Reset
-nState := 0;
+    nState := 0;
 END_ACTION
+
 END_FUNCTION_BLOCK

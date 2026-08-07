@@ -24,6 +24,7 @@ pos := _scan_index;
 IF Run THEN
     _delay := duration;
 END_IF
+
 _scan_index := _scan_index + 1;
 IF State = TestState.Starting AND _scan_index > TotalStepCount THEN
     TotalStepCount := _scan_index;

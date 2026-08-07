@@ -126,6 +126,25 @@ END_IF
 
 **The redundant `;` after a compound statement is removed.** `END_IF;` → `END_IF`.
 
+**A closed block is followed by a blank line.** Once `END_IF`, `END_CASE`,
+`END_WHILE`, `END_FOR` or `END_REPEAT` has closed, whatever comes next starts
+fresh:
+
+```
+IF bFault THEN
+    nState := 0;
+END_IF
+
+nCycles := nCycles + 1;
+```
+
+Two things are deliberately left tight. Nothing is forced after the *last*
+statement of a block, where a closing keyword follows rather than another
+statement; and nothing is forced before a pragma such as `{endregion}`, which
+annotates the code it sits among rather than starting something new. A comment
+in the gap keeps the blank line above itself, so it stays attached to the
+statement it documents.
+
 **An empty body gets an explicit `;`.** `IF c THEN END_IF` is legal but bare, so
 the formatter writes what an author would have typed:
 
@@ -175,13 +194,59 @@ END_VAR
 
 Run := TRUE;
 END_METHOD
+
 END_FUNCTION_BLOCK
 ```
 
-A blank line is **forced** in exactly two places: above a POU's statement body,
-and between members. Never above the first item, and never between a property's
-`GET` and `SET`, those are two halves of one declaration. Everywhere else the
-author's spacing stands, with runs of blank lines collapsed to one.
+`PROPERTY` and `ACTION` are the exception, their contents indent. A property is
+a wrapper around its accessors rather than a unit in its own right, and an
+action's body is a fragment of the enclosing POU's code, so in both cases the
+indentation is what shows where the enclosing POU resumes.
+
+```
+PROPERTY Speed : REAL
+    GET
+        Speed := 1.0;
+    END_GET
+    SET
+        ;
+    END_SET
+END_PROPERTY
+
+ACTION Reset
+    nState := 0;
+END_ACTION
+```
+
+**A top-level POU closes below a blank line.** `END_PROGRAM`, `END_FUNCTION`,
+`END_FUNCTION_BLOCK`, `END_CLASS`, `END_INTERFACE` and
+`END_TEST_FUNCTION_BLOCK` are set off from the body above them, so the end of a
+long POU reads as a boundary rather than as one more line of code. An empty POU
+keeps its keywords together, where a blank line would separate nothing from
+nothing. Member terminators — `END_METHOD`, `END_PROPERTY`, `END_ACTION`,
+`END_GET`, `END_SET` — stay tight against their bodies.
+
+**Top-level declarations are two blank lines apart.** One POU per screenful is
+the normal way to read these files, and a gap wider than any inside a POU is
+what makes the boundary unmissable at a glance:
+
+```
+Add := a + b;
+
+END_FUNCTION
+
+
+PROGRAM Main
+```
+
+A pragma is the one thing never pushed away: `{attribute 'pack_mode':='1'}`
+annotates the declaration beneath it, so it stays on the line above it and the
+two blank lines go above the pragma instead.
+
+Blank lines are also **forced** above a POU's statement body and between
+members. Never above the first item, and never between a property's `GET` and
+`SET`, those are two halves of one declaration. Everywhere else the author's
+spacing stands, with runs of blank lines collapsed to one.
 
 ## Comments
 

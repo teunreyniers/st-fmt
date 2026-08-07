@@ -5,6 +5,10 @@
 //!
 //! The `;` is owned by `block`, not by the statement — a statement node's byte
 //! range stops before its terminator — so blocks emit terminators themselves.
+//!
+//! Two spacing rules are enforced here rather than preserved from the source:
+//! top-level declarations are set two blank lines apart, and a statement
+//! following a closed `END_IF` or `END_WHILE` starts below a blank line.
 
 use tree_sitter::Node;
 
@@ -27,7 +31,16 @@ impl Formatter<'_> {
             let prev_end = i.checked_sub(1).map(|p| items[p].end_byte());
             let next_start = items.get(i + 1).map(Node::start_byte);
 
-            parts.push(self.separator_before(*item, prev_end, i == 0));
+            // Top-level declarations are set two blank lines apart, so one POU
+            // is unmistakably where the previous one ended. A pragma is the
+            // exception: it annotates the declaration beneath it, so nothing
+            // may come between the two.
+            let after_pragma = i
+                .checked_sub(1)
+                .is_some_and(|p| items[p].kind() == "pragma");
+            let forced = (!after_pragma).then_some(Doc::DoubleBlankLine);
+
+            parts.push(self.separator_before_forced(*item, prev_end, i == 0, forced));
             parts.push(match item.kind() {
                 // A file that is a bare statement list has one `block` child;
                 // its statements take terminators inside `block`. Nothing
@@ -70,7 +83,18 @@ impl Formatter<'_> {
             // other's comment.
             let next_start = items.get(i + 1).map_or(bound, Node::start_byte);
 
-            parts.push(self.separator_before(*item, prev_end, i == 0));
+            // A compound statement is a block of its own: once it has closed
+            // with END_IF or END_WHILE, whatever comes next starts fresh below
+            // a blank line. Nothing is forced after the *last* statement — the
+            // closing keyword that follows is not another statement — and
+            // nothing is forced before a pragma, which annotates the code it
+            // sits among rather than starting something new.
+            let after_compound = i
+                .checked_sub(1)
+                .is_some_and(|p| is_compound_statement(items[p].kind()));
+            let forced = (after_compound && item.kind() != "pragma").then_some(Doc::BlankLine);
+
+            parts.push(self.separator_before_forced(*item, prev_end, i == 0, forced));
             parts.push(self.statement(*item, next_start));
         }
 
@@ -118,7 +142,26 @@ impl Formatter<'_> {
         prev_end: Option<usize>,
         first: bool,
     ) -> Doc {
-        let comments = self.leading_comments(item.start_byte(), first);
+        self.separator_before_forced(item, prev_end, first, None)
+    }
+
+    /// [`Formatter::separator_before`], with `forced` overriding the author's
+    /// spacing between two items.
+    ///
+    /// The forced break applies *above* any comment sitting in the gap, so a
+    /// note stays attached to the item it documents rather than being pushed
+    /// away from it. Below the comment the author's spacing still stands.
+    pub(crate) fn separator_before_forced(
+        &mut self,
+        item: Node<'_>,
+        prev_end: Option<usize>,
+        first: bool,
+        forced: Option<Doc>,
+    ) -> Doc {
+        // A forced break is emitted by this routine, so the comment block must
+        // not emit its own leading line as well — the two would stack.
+        let forced = forced.filter(|_| !first);
+        let comments = self.leading_comments(item.start_byte(), first || forced.is_some());
 
         // With a comment in the gap, the separator above the item is measured
         // from that comment, not from the previous statement.
@@ -127,16 +170,27 @@ impl Formatter<'_> {
         } else {
             self.last_comment_end.or(prev_end)
         };
+        let authored_blank = gap_start
+            .is_some_and(|start| blank_line_between(self.source, start, item.start_byte()));
 
-        let separator = match gap_start {
-            _ if first && comments.is_nil() => Doc::Nil,
-            Some(start) if blank_line_between(self.source, start, item.start_byte()) => {
-                Doc::BlankLine
-            }
-            _ => Doc::HardLine,
+        let Some(forced) = forced else {
+            let separator = match gap_start {
+                _ if first && comments.is_nil() => Doc::Nil,
+                Some(_) if authored_blank => Doc::BlankLine,
+                _ => Doc::HardLine,
+            };
+            return Doc::concat([comments, separator]);
         };
 
-        Doc::concat([comments, separator])
+        if comments.is_nil() {
+            return forced;
+        }
+        let inner = if authored_blank {
+            Doc::BlankLine
+        } else {
+            Doc::HardLine
+        };
+        Doc::concat([forced, comments, inner])
     }
 }
 

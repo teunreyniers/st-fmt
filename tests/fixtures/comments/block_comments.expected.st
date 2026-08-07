@@ -8,4 +8,5 @@ END_VAR
 
 x := y;  (* inline *)
 z := 1;
+
 END_FUNCTION_BLOCK

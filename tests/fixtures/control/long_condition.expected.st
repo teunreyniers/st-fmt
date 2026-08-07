@@ -5,6 +5,7 @@ IF bEnableFromOperatorPanel
 THEN
     nState := 1;
 END_IF
+
 WHILE bStillRunningTheProcess
     AND nRemainingItemCount > 0
     AND NOT bAbortRequestedByUser

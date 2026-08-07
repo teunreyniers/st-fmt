@@ -16,4 +16,5 @@ IF _debounce_timer.Q THEN
 ELSE
     output := output;
 END_IF
+
 END_FUNCTION_BLOCK

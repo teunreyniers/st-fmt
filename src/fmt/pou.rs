@@ -5,10 +5,12 @@
 //! column; only the things that are not themselves containers — variable
 //! declarations, struct fields, statements — move in a level. That keeps deeply
 //! nested ST from marching off the right margin, and matches how vendor tools
-//! export these files.
+//! export these files. `PROPERTY` and `ACTION` are the exception and indent
+//! their contents; see [`indents_contents`].
 //!
-//! Blank lines are forced in exactly two places: before a POU's statement body,
-//! and between members. Everywhere else the author's spacing is preserved.
+//! Blank lines are forced before a POU's statement body, between members, and
+//! above a top-level POU's closing keyword. Everywhere else the author's
+//! spacing is preserved.
 
 use tree_sitter::Node;
 
@@ -57,6 +59,36 @@ fn is_separated_member(kind: &str) -> bool {
     is_member(kind) && !matches!(kind, "get_accessor" | "set_accessor")
 }
 
+/// The POUs that stand alone in a file, as opposed to being a member of one.
+///
+/// Their closing keyword is set off by a blank line: a file-level POU is long
+/// enough that `END_FUNCTION_BLOCK` reads as a boundary rather than as the next
+/// line of the body.
+fn is_top_level_pou(kind: &str) -> bool {
+    matches!(
+        kind,
+        "function_block_declaration"
+            | "test_function_block_declaration"
+            | "function_declaration"
+            | "program_declaration"
+            | "class_declaration"
+            | "interface_declaration"
+    )
+}
+
+/// The POUs whose contents indent instead of staying flat.
+///
+/// These are the exception to the containers-stay-flat rule. A PROPERTY is a
+/// wrapper around its accessors rather than a unit of its own, and an ACTION's
+/// body is a fragment of the enclosing POU's code, so in both cases the
+/// indentation is what shows where the enclosing construct resumes.
+fn indents_contents(kind: &str) -> bool {
+    matches!(
+        kind,
+        "property_declaration" | "action_declaration" | "get_accessor" | "set_accessor"
+    )
+}
+
 impl Formatter<'_> {
     /// Any POU: FUNCTION_BLOCK, FUNCTION, PROGRAM, CLASS, INTERFACE,
     /// TEST_FUNCTION_BLOCK, METHOD, ACTION, PROPERTY and the GET/SET accessors.
@@ -67,14 +99,27 @@ impl Formatter<'_> {
         let end = token(node, &end_keyword.to_ascii_lowercase());
         let bound = end.map_or(node.end_byte(), |t| t.start_byte());
 
+        let contents = self.pou_contents(node, bound);
+        let empty = contents.iter().all(Doc::is_nil);
+
         let mut parts = vec![self.pou_header(node, keyword)];
-        parts.extend(self.pou_contents(node, bound));
+        if indents_contents(node.kind()) {
+            parts.push(Doc::concat(contents).indent());
+        } else {
+            parts.extend(contents);
+        }
 
         // A METHOD's END_METHOD is optional in the grammar. Whether the author
         // wrote one is preserved rather than normalized, so a file that omits
         // them keeps parsing the same way.
         if end.is_some() {
-            parts.push(Doc::HardLine);
+            // An empty POU keeps its keywords together: a blank line there
+            // would separate nothing from nothing.
+            parts.push(if is_top_level_pou(node.kind()) && !empty {
+                Doc::BlankLine
+            } else {
+                Doc::HardLine
+            });
             parts.push(Doc::text(end_keyword.to_owned()));
         }
         Doc::concat(parts)

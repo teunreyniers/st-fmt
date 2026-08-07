@@ -26,6 +26,11 @@ pub enum Doc {
     HardLine,
     /// A newline plus one empty line. Forces every enclosing group to break.
     BlankLine,
+    /// A newline plus two empty lines. Forces every enclosing group to break.
+    ///
+    /// Used only between top-level declarations, which are set further apart
+    /// than anything inside one.
+    DoubleBlankLine,
     /// Indents every line break inside by one level.
     Indent(Box<Doc>),
     /// A break-together unit: rendered flat if it fits, otherwise broken.
@@ -104,7 +109,7 @@ impl Doc {
     /// means any group containing it must render broken.
     fn has_forced_break(&self) -> bool {
         match self {
-            Doc::HardLine | Doc::BlankLine => true,
+            Doc::HardLine | Doc::BlankLine | Doc::DoubleBlankLine => true,
             Doc::Concat(parts) | Doc::Fill(parts) => parts.iter().any(Doc::has_forced_break),
             Doc::Indent(inner) | Doc::Group(inner) => inner.has_forced_break(),
             // A group that breaks internally does not force its parent to
@@ -124,7 +129,7 @@ impl Doc {
             Doc::Nil | Doc::SoftLine => Some(0),
             Doc::Text(s) => Some(s.chars().count()),
             Doc::Line => Some(1),
-            Doc::HardLine | Doc::BlankLine => None,
+            Doc::HardLine | Doc::BlankLine | Doc::DoubleBlankLine => None,
             Doc::Concat(parts) => parts
                 .iter()
                 .try_fold(0, |acc, p| Some(acc + p.flat_width()?)),
@@ -240,6 +245,7 @@ pub fn render(doc: &Doc, width: usize) -> String {
             },
             Doc::HardLine => col = newline(&mut out, ind, 1),
             Doc::BlankLine => col = newline(&mut out, ind, 2),
+            Doc::DoubleBlankLine => col = newline(&mut out, ind, 3),
         }
     }
 
@@ -331,7 +337,9 @@ fn fits(remaining: usize, doc: &Doc, rest: &[Frame<'_>]) -> bool {
                 }
             }
             // Any break in Break mode ends the line, so everything fit.
-            Doc::Line | Doc::SoftLine | Doc::HardLine | Doc::BlankLine => return true,
+            Doc::Line | Doc::SoftLine | Doc::HardLine | Doc::BlankLine | Doc::DoubleBlankLine => {
+                return true;
+            }
         }
     }
 }
@@ -410,6 +418,12 @@ mod tests {
     fn blank_line_emits_exactly_one_empty_line() {
         let doc = d([Doc::text("a"), Doc::BlankLine, Doc::text("b")]);
         assert_eq!(render(&doc, 80), "a\n\nb\n");
+    }
+
+    #[test]
+    fn double_blank_line_emits_exactly_two_empty_lines() {
+        let doc = d([Doc::text("a"), Doc::DoubleBlankLine, Doc::text("b")]);
+        assert_eq!(render(&doc, 80), "a\n\n\nb\n");
     }
 
     #[test]

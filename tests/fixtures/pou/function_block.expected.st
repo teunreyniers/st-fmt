@@ -9,4 +9,5 @@ END_VAR
 IF bStart THEN
     nState := 1;
 END_IF
+
 END_FUNCTION_BLOCK
