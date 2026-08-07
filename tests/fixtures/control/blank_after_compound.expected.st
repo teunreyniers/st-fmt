@@ -1,7 +1,7 @@
 {region Logic}
-IF a THEN
-    x := 1;
-END_IF
+    IF a THEN
+        x := 1;
+    END_IF
 {endregion}
 IF b THEN
     y := 1;

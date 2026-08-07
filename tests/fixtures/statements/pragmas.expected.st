@@ -1,3 +1,3 @@
 {region Event logic}
-a := 1;
+    a := 1;
 {endregion}

@@ -66,3 +66,56 @@ pub fn bare_keyword(_f: &mut Formatter<'_>, node: Node<'_>) -> Doc {
 pub fn pragma(f: &mut Formatter<'_>, node: Node<'_>) -> Doc {
     Doc::text(f.text(node).to_owned())
 }
+
+/// What a pragma does to region nesting.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Region {
+    /// `{region Event logic}` — everything below it indents one level.
+    Open,
+    /// `{endregion}` — returns to the opening pragma's column.
+    Close,
+}
+
+/// Classifies a pragma as a region marker.
+///
+/// Only the first word counts, so a region's title is free text and
+/// `{regionally 'odd'}` is not mistaken for one. `{end_region}` is accepted
+/// alongside `{endregion}`: both spellings are in the wild.
+pub fn region(text: &str) -> Option<Region> {
+    let body = text.strip_prefix('{')?;
+    let word: String = body
+        .trim_start()
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+        .collect();
+
+    if word.eq_ignore_ascii_case("region") {
+        Some(Region::Open)
+    } else if word.eq_ignore_ascii_case("endregion") || word.eq_ignore_ascii_case("end_region") {
+        Some(Region::Close)
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn region_markers_are_recognized_case_insensitively() {
+        assert_eq!(region("{region Event logic}"), Some(Region::Open));
+        assert_eq!(region("{REGION \"Event logic\"}"), Some(Region::Open));
+        assert_eq!(region("{ region }"), Some(Region::Open));
+        assert_eq!(region("{endregion}"), Some(Region::Close));
+        assert_eq!(region("{EndRegion Event logic}"), Some(Region::Close));
+        assert_eq!(region("{end_region}"), Some(Region::Close));
+    }
+
+    #[test]
+    fn other_pragmas_are_not_region_markers() {
+        assert_eq!(region("{attribute 'qualified_only'}"), None);
+        assert_eq!(region("{regionally 'odd'}"), None);
+        assert_eq!(region("{}"), None);
+    }
+}

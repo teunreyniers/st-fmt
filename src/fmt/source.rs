@@ -9,9 +9,14 @@
 //! Two spacing rules are enforced here rather than preserved from the source:
 //! top-level declarations are set two blank lines apart, and a statement
 //! following a closed `END_IF` or `END_WHILE` starts below a blank line.
+//!
+//! Region pragmas are the one construct whose nesting is not in the tree: to
+//! the grammar `{region …}` and `{endregion}` are two unrelated siblings, so
+//! [`RegionNesting`] recovers the level they bracket while walking the run.
 
 use tree_sitter::Node;
 
+use super::stmt::{Region, region};
 use super::{Formatter, is_compound_statement};
 use crate::doc::Doc;
 use crate::trivia::blank_line_between;
@@ -26,7 +31,7 @@ impl Formatter<'_> {
             return self.leading_comments(usize::MAX, true);
         }
 
-        let mut parts = Vec::new();
+        let mut nesting = RegionNesting::new();
         for (i, item) in items.iter().enumerate() {
             let prev_end = i.checked_sub(1).map(|p| items[p].end_byte());
             let next_start = items.get(i + 1).map(Node::start_byte);
@@ -40,8 +45,8 @@ impl Formatter<'_> {
                 .is_some_and(|p| items[p].kind() == "pragma");
             let forced = (!after_pragma).then_some(Doc::DoubleBlankLine);
 
-            parts.push(self.separator_before_forced(*item, prev_end, i == 0, forced));
-            parts.push(match item.kind() {
+            let marker = self.region_aware_separator(&mut nesting, *item, prev_end, i == 0, forced);
+            let doc = match item.kind() {
                 // A file that is a bare statement list has one `block` child;
                 // its statements take terminators inside `block`. Nothing
                 // follows it, so its bound is the end of the file.
@@ -56,12 +61,16 @@ impl Formatter<'_> {
                     );
                     Doc::concat([doc, trailing])
                 }
-            });
+            };
+            nesting.push(doc);
+
+            if marker == Some(Region::Open) {
+                nesting.open();
+            }
         }
 
         // Whatever is left is a trailing comment at end of file.
-        parts.push(self.leading_comments(usize::MAX, false));
-        Doc::concat(parts)
+        Doc::concat([nesting.finish(), self.leading_comments(usize::MAX, false)])
     }
 
     /// A statement block: each item on its own line, terminators applied, blank
@@ -74,7 +83,7 @@ impl Formatter<'_> {
     /// from one belonging to the construct that closes the block.
     pub fn block(&mut self, node: Node<'_>, bound: usize) -> Doc {
         let items = named_children(node);
-        let mut parts = Vec::new();
+        let mut nesting = RegionNesting::new();
 
         for (i, item) in items.iter().enumerate() {
             let prev_end = i.checked_sub(1).map(|p| items[p].end_byte());
@@ -94,16 +103,21 @@ impl Formatter<'_> {
                 .is_some_and(|p| is_compound_statement(items[p].kind()));
             let forced = (after_compound && item.kind() != "pragma").then_some(Doc::BlankLine);
 
-            parts.push(self.separator_before_forced(*item, prev_end, i == 0, forced));
-            parts.push(self.statement(*item, next_start));
+            let marker = self.region_aware_separator(&mut nesting, *item, prev_end, i == 0, forced);
+            let statement = self.statement(*item, next_start);
+            nesting.push(statement);
+
+            if marker == Some(Region::Open) {
+                nesting.open();
+            }
         }
 
         // Own-line comments between the last statement and the closing keyword
         // belong to this block, not to what follows it. This is the case
         // grammar.js calls out: a comment before END_VAR attaches to the
         // section node rather than to any declaration.
-        parts.push(self.leading_comments(bound, items.is_empty()));
-        Doc::concat(parts)
+        let trailing = self.leading_comments(bound, items.is_empty());
+        Doc::concat([nesting.finish(), trailing])
     }
 
     /// One statement plus its terminator and any comment trailing it.
@@ -191,6 +205,140 @@ impl Formatter<'_> {
             Doc::HardLine
         };
         Doc::concat([forced, comments, inner])
+    }
+
+    /// Emits the break above `item` into `nesting`, closing a region level
+    /// first if the item is an `{endregion}`.
+    ///
+    /// Returns the marker the item carries so the caller can open a level once
+    /// the item itself has been emitted — a region indents what comes *after*
+    /// its opening pragma, not the pragma.
+    fn region_aware_separator(
+        &mut self,
+        nesting: &mut RegionNesting,
+        item: Node<'_>,
+        prev_end: Option<usize>,
+        first: bool,
+        forced: Option<Doc>,
+    ) -> Option<Region> {
+        let marker = self.region_marker(item);
+        if marker == Some(Region::Close) {
+            let (inside, outside) = self.region_close_separator(item, prev_end, first, forced);
+            nesting.push(inside);
+            nesting.close();
+            nesting.push(outside);
+        } else {
+            let separator = self.separator_before_forced(item, prev_end, first, forced);
+            nesting.push(separator);
+        }
+        marker
+    }
+
+    /// The separator above an `{endregion}`, split across the two indentation
+    /// levels it straddles.
+    ///
+    /// A comment sitting above the marker documents the region's last lines
+    /// rather than the marker itself, so it stays *inside* the region — just as
+    /// a comment above `END_IF` stays inside the block it closes. Only the
+    /// second half, the break carrying the marker's own line, is emitted at the
+    /// enclosing level.
+    fn region_close_separator(
+        &mut self,
+        item: Node<'_>,
+        prev_end: Option<usize>,
+        first: bool,
+        forced: Option<Doc>,
+    ) -> (Doc, Doc) {
+        let forced = forced.filter(|_| !first);
+        let comments = self.leading_comments(item.start_byte(), first || forced.is_some());
+
+        let gap_start = if comments.is_nil() {
+            prev_end
+        } else {
+            self.last_comment_end.or(prev_end)
+        };
+        let authored_blank = gap_start
+            .is_some_and(|start| blank_line_between(self.source, start, item.start_byte()));
+        let below = if authored_blank {
+            Doc::BlankLine
+        } else {
+            Doc::HardLine
+        };
+
+        if comments.is_nil() {
+            let outside = match forced {
+                Some(forced) => forced,
+                None if first => Doc::Nil,
+                None => below,
+            };
+            return (Doc::Nil, outside);
+        }
+        // With a comment in the gap the forced break goes above it, inside the
+        // region: the break preceding a line is what sets that line's column.
+        (Doc::concat([forced.unwrap_or(Doc::Nil), comments]), below)
+    }
+
+    /// Whether `item` is a region pragma, and which end of one.
+    fn region_marker(&self, item: Node<'_>) -> Option<Region> {
+        (item.kind() == "pragma")
+            .then(|| region(self.text(item)))
+            .flatten()
+    }
+}
+
+/// The parts of a run of items, with one indentation level per open region.
+///
+/// `{region …}` and `{endregion}` are ordinary siblings in the tree — the
+/// grammar sees two pragmas, not a construct — so the level they bracket is
+/// recovered here. The break above an item is pushed as a part of its own,
+/// because that break is what carries the item's indentation: an `{endregion}`
+/// closes the level *before* its break is pushed, and a `{region …}` opens one
+/// *after* its own line is complete.
+struct RegionNesting {
+    /// One frame per open region, outermost first. The bottom frame is the run
+    /// itself and is never popped.
+    frames: Vec<Vec<Doc>>,
+}
+
+impl RegionNesting {
+    fn new() -> RegionNesting {
+        RegionNesting {
+            frames: vec![Vec::new()],
+        }
+    }
+
+    /// Appends one part — a break, a comment block or an item — to the
+    /// innermost open region.
+    fn push(&mut self, doc: Doc) {
+        self.frames
+            .last_mut()
+            .expect("the bottom frame is never popped")
+            .push(doc);
+    }
+
+    /// Opens a region: everything pushed from here until it closes indents.
+    fn open(&mut self) {
+        self.frames.push(Vec::new());
+    }
+
+    /// Closes the innermost open region. A stray `{endregion}` — one with no
+    /// opener above it — is left where the author put it rather than dedenting
+    /// the code around it.
+    fn close(&mut self) {
+        if self.frames.len() < 2 {
+            return;
+        }
+        let inner = self.frames.pop().expect("checked above");
+        self.push(Doc::concat(inner).indent());
+    }
+
+    /// Emits the whole run, unwinding any region the author left open so an
+    /// unbalanced file still formats.
+    fn finish(mut self) -> Doc {
+        while self.frames.len() > 1 {
+            self.close();
+        }
+        Doc::concat(self.frames.pop().expect("the bottom frame is never popped"))
     }
 }
 

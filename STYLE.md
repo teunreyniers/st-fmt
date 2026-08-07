@@ -268,6 +268,37 @@ Pragmas are copied verbatim: the grammar captures their interior as one opaque
 token, so `{attribute 'pack_mode':='1'}` and `{region Event logic}` pass through
 untouched.
 
+## Regions
+
+**A region indents what it brackets.** `{region …}` opens a level and
+`{endregion}` returns to the opening pragma's column, so the extent of a folded
+region is visible even when the editor has it unfolded:
+
+```
+{region Event logic}
+    IF bTrigger THEN
+        nEvents := nEvents + 1;
+    END_IF
+
+    {region Diagnostics}
+        sLast := 'ok';
+    {endregion}
+{endregion}
+```
+
+This is the one place indentation is not read off the parse tree. To the grammar
+the two pragmas are unrelated siblings, so the level is recovered by matching
+them while walking a statement list. Only the first word decides: `{region}`,
+`{endregion}` and `{end_region}` in any casing, which leaves a region's title
+free text and `{attribute …}` unaffected.
+
+Unbalanced markers are formatted, not rejected. An `{endregion}` with nothing
+open is left at the level it was found, and a region the author never closed
+runs to the end of its block.
+
+A comment sitting above `{endregion}` stays **inside** the region, the same way
+a comment above `END_IF` stays inside the block it closes.
+
 ## What st-fmt will not do
 
 - **Format an invalid file.** A parse error is a refusal with exit code 2 and no

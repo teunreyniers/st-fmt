@@ -12,7 +12,7 @@ VAR
 END_VAR
 
 {region Event logic}
-above := value >= threshold;
+    above := value >= threshold;
 {endregion}
 
 END_FUNCTION_BLOCK
