@@ -17,4 +17,4 @@ path = "src/main.rs"
 tree-sitter = "0.26"
 # Taken from git, pinned to an exact revision for reproducible builds. The
 # crates.io crate of the same name is an unrelated grammar by another author 
-tree-sitter-structured-text = { git = "https://github.com/teunreyniers/tree-sitter-structured-text", rev = "6dc987a58754428717e4ce21deb6fa26289a4b04" }
+tree-sitter-structured-text = { git = "https://github.com/teunreyniers/tree-sitter-structured-text", rev = "328da4d9d9cc1f89b4e1d239471d896cad826dfb" }

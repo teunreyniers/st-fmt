@@ -205,7 +205,7 @@ checksum = "009994f150cc0cd50ff54917d5bc8bffe8cad10ca10d81c34da2ec421ae61782"
 [[package]]
 name = "tree-sitter-structured-text"
 version = "0.1.0"
-source = "git+https://github.com/teunreyniers/tree-sitter-structured-text?rev=6dc987a58754428717e4ce21deb6fa26289a4b04#6dc987a58754428717e4ce21deb6fa26289a4b04"
+source = "git+https://github.com/teunreyniers/tree-sitter-structured-text?rev=328da4d9d9cc1f89b4e1d239471d896cad826dfb#328da4d9d9cc1f89b4e1d239471d896cad826dfb"
 dependencies = [
  "cc",
  "tree-sitter-language",
