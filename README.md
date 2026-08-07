@@ -30,6 +30,46 @@ continuation line.
 
 st-fmt is zero-config. The constants live in `src/style.rs`.
 
+## Pre-commit hook
+
+st-fmt ships hook definitions for [pre-commit](https://pre-commit.com), so a
+Structured Text repository can name this one in its `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/teunreyniers/st-fmt
+    rev: v0.1.0        # any tag or commit of this repository
+    hooks:
+      - id: st-fmt
+```
+
+`language: rust` means pre-commit builds the binary with cargo the first time
+the hook is installed — that machine needs network then, to fetch the pinned
+grammar, but never the tree-sitter CLI. Two hooks are defined:
+
+| Hook | Effect |
+|---|---|
+| `st-fmt` | Formats the staged files in place. The commit fails reporting the files the hook modified; stage them and commit again. |
+| `st-fmt-check` | Writes nothing and fails on a file that is not formatted. Use it where the commit should never be rewritten under you. |
+
+Both match `.st`, `.iec` and `.scl` case-insensitively and skip symlinks. A
+parse error exits 2, so a file that does not parse fails the commit as loudly as
+an unformatted one, and is left untouched.
+
+### Without the framework
+
+A plain `.git/hooks/pre-commit` does the same with the staged paths:
+
+```sh
+#!/bin/sh
+git diff --cached --name-only --diff-filter=ACMR -z \
+    -- ':(icase)*.st' ':(icase)*.iec' ':(icase)*.scl' \
+  | xargs -0 -r st-fmt --check
+```
+
+`xargs -r` matters: with no paths at all st-fmt prints its usage and exits 2,
+which would fail every commit that touches no Structured Text.
+
 ## Build
 
 ```sh
