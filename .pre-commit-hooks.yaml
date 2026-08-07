@@ -1,0 +1,24 @@
+# Hook definitions for https://pre-commit.com. A Structured Text repository
+# names this repository in its .pre-commit-config.yaml and pre-commit builds the
+# binary with cargo; see the README.
+#
+# `files` is matched against the staged paths — the walk in st-fmt itself never
+# runs here, since pre-commit passes the files. It is case-insensitive because a
+# vendor export is as likely to write .ST as .st, and `types: [file]` drops
+# symlinks, which st-fmt refuses to write through.
+
+- id: st-fmt
+  name: st-fmt
+  description: Format IEC 61131-3 Structured Text in place
+  entry: st-fmt
+  language: rust
+  files: '(?i)\.(st|iec|scl)$'
+  types: [file]
+
+- id: st-fmt-check
+  name: st-fmt --check
+  description: Check that IEC 61131-3 Structured Text is formatted, writing nothing
+  entry: st-fmt --check
+  language: rust
+  files: '(?i)\.(st|iec|scl)$'
+  types: [file]
