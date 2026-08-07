@@ -8,12 +8,18 @@ It formats valid files only. A file that does not parse is refused with a
 position and no output, there is no best-effort mode.
 
 ```sh
-st-fmt <FILE>...       # format each file in place
-st-fmt --check <F>...  # report files that would change; write nothing
+st-fmt <PATH>...       # format each file in place; a directory is walked
+st-fmt --check <P>...  # report files that would change; write nothing
 st-fmt -               # read stdin, write formatted source to stdout
 ```
 
 Exit codes: `0` clean, `1` would-change (`--check` only), `2` parse or I/O error.
+
+A directory argument is searched recursively for `.st`, `.iec` and `.scl` files,
+so `st-fmt .` formats a whole project and `st-fmt --check .` is the CI gate.
+Hidden entries such as `.git` are skipped, and so are symlinks — formatting is
+in place, and writing through a link would rewrite a file outside the tree. A
+file named directly on the command line is formatted whatever its extension.
 
 ## Style
 

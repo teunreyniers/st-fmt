@@ -1,8 +1,8 @@
 //! The st-fmt command line interface.
 //!
 //! ```text
-//! st-fmt <FILE>...       format each file in place
-//! st-fmt --check <F>...  exit 1 if any file would change; write nothing
+//! st-fmt <PATH>...       format each file in place; walk each directory
+//! st-fmt --check <P>...  exit 1 if any file would change; write nothing
 //! st-fmt -               read stdin, write formatted source to stdout
 //! ```
 //!
@@ -16,15 +16,23 @@ const USAGE: &str = "\
 st-fmt — a formatter for IEC 61131-3 Structured Text
 
 USAGE:
-    st-fmt <FILE>...       format each file in place
-    st-fmt --check <F>...  report files that would change; write nothing
+    st-fmt <PATH>...       format each file in place; a directory is walked
+    st-fmt --check <P>...  report files that would change; write nothing
     st-fmt -               read stdin, write formatted source to stdout
+
+A directory argument is searched recursively for .st, .iec and .scl files.
+Hidden entries and symlinks are skipped. A file named directly is always
+formatted, whatever it is called.
 
 OPTIONS:
     --check       do not write; exit 1 if any file is not already formatted
     -h, --help    show this help
     -V, --version show the version
 ";
+
+/// The extensions a directory walk picks up. Matched case-insensitively, since
+/// vendor exports are as likely to write `.ST` as `.st`.
+const ST_EXTENSIONS: [&str; 3] = ["st", "iec", "scl"];
 
 /// Exit code 2 is reserved for a refusal: a file that does not parse, or an I/O
 /// failure. It is distinct from 1 so `--check` in CI can tell "needs
@@ -78,7 +86,101 @@ fn run() -> Result<ExitCode, String> {
     if stdin {
         return format_stdin();
     }
-    format_files(&paths, check)
+
+    let (files, walked_cleanly) = collect_targets(&paths);
+    if files.is_empty() {
+        // Only a directory argument can come back empty, and a silent success
+        // there reads as "everything is formatted" when nothing was looked at.
+        eprintln!("st-fmt: no Structured Text files found");
+    }
+
+    let code = format_files(&files, check)?;
+    if !walked_cleanly {
+        return Ok(ExitCode::from(EXIT_FAILURE));
+    }
+    Ok(code)
+}
+
+/// Expands the command line into the list of files to format: a file argument
+/// stands for itself, a directory for every Structured Text file beneath it.
+///
+/// Returns `false` alongside the files if any directory could not be read, so
+/// that a partial walk cannot pass for a clean one.
+fn collect_targets(paths: &[PathBuf]) -> (Vec<PathBuf>, bool) {
+    let mut files = Vec::new();
+    let mut ok = true;
+
+    for path in paths {
+        if !path.is_dir() {
+            files.push(path.clone());
+            continue;
+        }
+        // Sort what this argument contributed: `read_dir` order is arbitrary,
+        // and `--check` output should not shuffle between runs. Each argument
+        // is sorted on its own, so the order they were given in survives.
+        let start = files.len();
+        ok &= walk(path, &mut files);
+        files[start..].sort();
+    }
+
+    (files, ok)
+}
+
+/// Collects the Structured Text files under `dir`, recursively.
+///
+/// Hidden entries are skipped — `.git` holds no source — and so are symlinks:
+/// formatting is in place, and writing through a link would rewrite a file
+/// outside the tree the user pointed at. Reading the entry's own type rather
+/// than following it also means a symlink cycle cannot trap the walk.
+fn walk(dir: &Path, out: &mut Vec<PathBuf>) -> bool {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(e) => {
+            eprintln!("st-fmt: {}: {e}", dir.display());
+            return false;
+        }
+    };
+
+    let mut ok = true;
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(e) => {
+                eprintln!("st-fmt: {}: {e}", dir.display());
+                ok = false;
+                continue;
+            }
+        };
+
+        if entry.file_name().as_encoded_bytes().starts_with(b".") {
+            continue;
+        }
+
+        let file_type = match entry.file_type() {
+            Ok(file_type) => file_type,
+            Err(e) => {
+                eprintln!("st-fmt: {}: {e}", entry.path().display());
+                ok = false;
+                continue;
+            }
+        };
+
+        let path = entry.path();
+        if file_type.is_dir() {
+            ok &= walk(&path, out);
+        } else if file_type.is_file() && is_st_file(&path) {
+            out.push(path);
+        }
+    }
+    ok
+}
+
+fn is_st_file(path: &Path) -> bool {
+    path.extension().and_then(|e| e.to_str()).is_some_and(|e| {
+        ST_EXTENSIONS
+            .iter()
+            .any(|known| e.eq_ignore_ascii_case(known))
+    })
 }
 
 fn format_stdin() -> Result<ExitCode, String> {
