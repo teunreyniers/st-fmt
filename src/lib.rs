@@ -17,6 +17,10 @@ pub mod trivia;
 
 pub use parse::{FormatError, ParseFault};
 
+/// The version of st-fmt, so that the bindings in `bindings/` can report the
+/// formatter's version rather than their own.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 /// Formats a Structured Text source file.
 ///
 /// Returns [`FormatError`] without producing any output if the source does not
