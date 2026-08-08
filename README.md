@@ -74,8 +74,11 @@ which would fail every commit that touches no Structured Text.
 
 ```sh
 cargo build
-cargo test
+cargo test --workspace
 ```
+
+`--workspace` picks up `bindings/ffi` as well; a plain `cargo build` deliberately
+produces only the library and the CLI, leaving the C ABI to be built on demand.
 
 Nothing else is needed. The grammar is a **git dependency pinned to an exact
 revision**, and its generated `parser.c` is committed, so cargo fetches and
@@ -99,6 +102,31 @@ cp .cargo/config.toml.example .cargo/config.toml
 `.cargo/config.toml` is gitignored, so the override stays local while everyone
 else — and CI — keeps building the pinned revision. To adopt grammar changes for
 real, push them and bump `rev` in `Cargo.toml`.
+
+## Calling it from Python
+
+`bindings/python` packages the formatter for **CPython 2.7, CPython 3.x, and
+Jython 2.7 — including Ignition**:
+
+```python
+import st_fmt
+
+st_fmt.format_source("if a then x:=1; end_if;")
+st_fmt.is_formatted(source)
+```
+
+There is no binding generator that covers both Python majors, so the package
+does not use one. `bindings/ffi` exposes the formatter as a plain C ABI, which
+`ctypes` calls in-process; Jython, which has no working ctypes, spawns the CLI
+instead. Nothing links against libpython, so one build serves every interpreter.
+
+```sh
+python3 bindings/python/build.py     # writes a wheel and an Ignition archive
+```
+
+See [`bindings/python/README.md`](bindings/python/README.md) — in particular the
+note on Linux glibc floors, which decides whether the result runs on an older
+gateway.
 
 ## How it works
 

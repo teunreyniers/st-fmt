@@ -1,3 +1,9 @@
+[workspace]
+# The root package is a member implicitly. bindings/ffi is kept out of the main
+# crate so that a plain `cargo build` still produces only the library and the
+# CLI, and the C ABI is built on demand.
+members = ["bindings/ffi"]
+
 [package]
 name = "st-fmt"
 version = "0.1.0"
