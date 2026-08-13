@@ -10,8 +10,8 @@ picks whichever way of calling it works on the interpreter you are running:
 
 * **ctypes**, on CPython 2.7 and 3.x, calling the bundled shared library
   in-process. This is the fast path.
-* **subprocess**, on Jython — Ignition's interpreter — which has no working
-  ctypes. The bundled ``st-fmt`` executable is driven over a pipe.
+* **subprocess**, on Jython, which has no working ctypes. The bundled
+  ``st-fmt`` executable is driven over a pipe.
 
 Nothing here links against libpython, so a single build serves every version.
 
@@ -72,9 +72,9 @@ def _choose():
     """Picks a backend, honouring the environment overrides.
 
     ``ST_FMT_LIBRARY`` and ``ST_FMT_BINARY`` name an artifact outside the
-    package. Both matter for Ignition, where the gateway's ``user-lib/pylib``
-    may be read-only or on a share that cannot hold an executable file, so the
-    binary has to live elsewhere on the machine.
+    package. Both matter on a Jython host, where the third-party library
+    directory may be read-only or on a share that cannot hold an executable
+    file, so the binary has to live elsewhere on the machine.
 
     ``ST_FMT_BACKEND`` pins the mechanism to ``ctypes`` or ``subprocess``,
     which is mostly useful for testing the Jython path from CPython.
