@@ -125,7 +125,10 @@ mod tests {
     fn format(source: &[u8]) -> (c_int, String) {
         let mut out: *mut c_char = std::ptr::null_mut();
         let code = unsafe { st_fmt_format(source.as_ptr(), source.len(), &mut out) };
-        assert!(!out.is_null(), "every code but ERR_NULL allocates a message");
+        assert!(
+            !out.is_null(),
+            "every code but ERR_NULL allocates a message"
+        );
         let text = unsafe { std::ffi::CStr::from_ptr(out) }
             .to_string_lossy()
             .into_owned();

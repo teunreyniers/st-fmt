@@ -33,7 +33,7 @@ _EXECUTABLE_NAMES = {
 
 
 def is_jython():
-    """True on Jython, which is what Ignition embeds."""
+    """True on Jython, where ctypes does not work."""
     return sys.platform.startswith("java")
 
 

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Checks on the archives ``build.py`` writes.
 
-These validate what pip and the Ignition operator will find inside: that the
+These validate what pip and a Jython operator will find inside: that the
 RECORD is honest, that the native artifacts carry an executable mode, and that
 the package still works when it does not. They skip when nothing has been built.
 """
@@ -111,21 +111,21 @@ class WheelTestCase(unittest.TestCase):
             self.assertNotIn("__pycache__", name)
 
 
-class IgnitionArchiveTestCase(unittest.TestCase):
+class JythonArchiveTestCase(unittest.TestCase):
     def setUp(self):
-        self.path = newest(".zip", "-ignition-")
+        self.path = newest(".zip", "-jython-")
         if self.path is None:
-            self.skipTest("no Ignition archive in dist/; run bindings/python/build.py")
+            self.skipTest("no Jython archive in dist/; run bindings/python/build.py")
 
-    def test_holds_the_package_and_install_notes(self):
+    def test_holds_the_package_and_a_native_build(self):
         with zipfile.ZipFile(self.path) as archive:
             names = archive.namelist()
-        self.assertIn("INSTALL.txt", names)
         self.assertIn("st_fmt/__init__.py", names)
+        self.assertIn("LICENSE", names)
         self.assertTrue(any("/_native/" in name for name in names), names)
 
     def test_extracts_to_a_working_package(self):
-        # The Ignition install is "unzip this onto the path", so the extracted
+        # The Jython install is "unzip this onto the path", so the extracted
         # tree has to import and format as it stands.
         root = tempfile.mkdtemp()
         try:
@@ -145,7 +145,7 @@ class IgnitionArchiveTestCase(unittest.TestCase):
 
 
 class ExecutableBitTestCase(unittest.TestCase):
-    """The failure mode that bites an Ignition deployment.
+    """The failure mode that bites a hand-unzipped deployment.
 
     Python's zipfile drops permissions on extraction, so a package unpacked by a
     script -- or by a tool that ignores the mode -- leaves ``st-fmt`` at 644 and

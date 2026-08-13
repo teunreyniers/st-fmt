@@ -223,8 +223,8 @@ END_ACTION
 `END_TEST_FUNCTION_BLOCK` are set off from the body above them, so the end of a
 long POU reads as a boundary rather than as one more line of code. An empty POU
 keeps its keywords together, where a blank line would separate nothing from
-nothing. Member terminators — `END_METHOD`, `END_PROPERTY`, `END_ACTION`,
-`END_GET`, `END_SET` — stay tight against their bodies.
+nothing. Member terminators (`END_METHOD`, `END_PROPERTY`, `END_ACTION`,
+`END_GET`, `END_SET`) stay tight against their bodies.
 
 **Top-level declarations are two blank lines apart.** One POU per screenful is
 the normal way to read these files, and a gap wider than any inside a POU is

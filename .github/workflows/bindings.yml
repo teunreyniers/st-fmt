@@ -1,0 +1,156 @@
+name: Python bindings
+
+# One package claims CPython 2.7, CPython 3.x and Jython 2.7, so each of the
+# three gets a job. The suites skip rather than fail when no native
+# build is staged, so every job asserts which backend actually loaded before it
+# runs them -- otherwise a build that produced nothing usable would pass green
+# with every test skipped.
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  cpython3:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # The oldest and newest that matter. The package declares
+        # Requires-Python >=2.7 excluding 3.0-3.3, and nothing here is
+        # version-sensitive, so two points bracket the range.
+        python-version: [ "3.9", "3.13" ]
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: Swatinem/rust-cache@v2
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Build the Python package
+      run: python bindings/python/build.py
+
+    # build.py regenerates _version.py from Cargo.toml, and _version.py is
+    # tracked. A diff here means the committed version has drifted from the
+    # crate's and the wheel would ship mislabelled.
+    - name: Check the staged version is current
+      run: git diff --exit-code bindings/python/st_fmt/_version.py
+
+    - name: Check the ctypes backend loaded
+      run: |
+        PYTHONPATH=bindings/python python -c "
+        import st_fmt
+        name = st_fmt.backend_name()
+        print('backend: ' + name)
+        assert name == 'ctypes', 'expected ctypes, got ' + name
+        "
+
+    # Every test runs against each backend the interpreter can load, so this
+    # also covers the subprocess path that Jython takes in production.
+    - name: Test the Python bindings
+      run: python -m unittest discover -s bindings/python/tests --verbose
+
+  cpython27:
+
+    runs-on: ubuntu-latest
+    # 2.7 has been gone from the runner images for years. This image is the
+    # workable base: it carries python2.7 *and* a python3 -- build.py needs 3 --
+    # and is supported into 2027. The official python:2.7 images ship no
+    # python3, Debian buster's apt repos are archived, and bookworm dropped
+    # python2.7 altogether.
+    container: ubuntu:22.04
+
+    steps:
+    # git before checkout: the action needs it to clone, and so does cargo,
+    # since the grammar is a pinned git dependency.
+    - name: Install the toolchain
+      run: |
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y \
+          python2.7 python3 curl git build-essential
+
+    - uses: actions/checkout@v4
+
+    # Edition 2024 needs Rust 1.85 or newer, which rules out a distro rustc.
+    - name: Install Rust
+      run: |
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+          | sh -s -- -y --profile minimal --default-toolchain stable
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+    # Building here rather than on the host is the point of this job: the
+    # shared library and the interpreter that dlopens it then share one glibc.
+    # A library built on the runner (glibc 2.39) would fail to load here, and
+    # _ctypes_backend.load() swallows that and returns None -- the suite would
+    # quietly fall through to the subprocess backend and still pass.
+    - name: Build the Python package
+      run: python3 bindings/python/build.py
+
+    - name: Check the ctypes backend loaded
+      run: |
+        PYTHONPATH=bindings/python python2.7 -c "
+        import st_fmt
+        name = st_fmt.backend_name()
+        print('backend: ' + name)
+        assert name == 'ctypes', 'expected ctypes, got ' + name
+        "
+
+    - name: Test the Python bindings
+      run: python2.7 -m unittest discover -s bindings/python/tests --verbose
+
+  jython:
+
+    runs-on: ubuntu-latest
+
+    env:
+      # Pinned rather than tracking upstream, so the job keeps testing the
+      # interpreter version deployments actually run.
+      JYTHON_VERSION: 2.7.3
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: Swatinem/rust-cache@v2
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: '11'
+
+    # The host python3 builds; Jython only ever uses the executable, since it
+    # has no working ctypes.
+    - name: Build the Python package
+      run: python3 bindings/python/build.py
+
+    - name: Fetch Jython
+      run: |
+        curl -sSLo "$RUNNER_TEMP/jython.jar" \
+          "https://repo1.maven.org/maven2/org/python/jython-standalone/$JYTHON_VERSION/jython-standalone-$JYTHON_VERSION.jar"
+
+    # -Dpython.path rather than PYTHONPATH: that is what seeds sys.path
+    # reliably for `java -jar`. Asserting 'subprocess' also proves
+    # _platform.is_jython() and its java.lang.System lookup work on a real JVM,
+    # which no CPython run can reach.
+    - name: Check the subprocess backend loaded
+      run: |
+        java -Dpython.path=bindings/python -jar "$RUNNER_TEMP/jython.jar" -c "
+        import st_fmt
+        name = st_fmt.backend_name()
+        print('backend: ' + name)
+        assert name == 'subprocess', 'expected subprocess, got ' + name
+        "
+
+    # test_st_fmt.py only. test_package.py inspects the wheel and the zip on
+    # disk -- interpreter-independent, and already covered by the CPython jobs
+    # -- and one of its cases respawns sys.executable, which is not a usable
+    # program under `java -jar`.
+    - name: Test the Python bindings
+      run: |
+        java -jar "$RUNNER_TEMP/jython.jar" -m unittest discover \
+          -s bindings/python/tests -p 'test_st_fmt.py' --verbose

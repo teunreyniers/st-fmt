@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """The portable backend: the ``st-fmt`` CLI driven over a pipe.
 
-Jython -- which is what Ignition runs -- has no working ctypes, so the only way
-to reach a native formatter from an Ignition script is to spawn it. ``st-fmt -``
-reads stdin and writes the formatted source to stdout, which is exactly the
-shape needed here.
+Jython has no working ctypes, so the only way to reach a native formatter from
+a Jython script is to spawn it. ``st-fmt -`` reads stdin and writes the
+formatted source to stdout, which is exactly the shape needed here.
 
 It costs a process launch per call, a few milliseconds, so the ctypes backend is
 preferred wherever it can be loaded.
@@ -87,7 +86,7 @@ def _startupinfo():
 def _ensure_executable(path):
     """Restores the executable bit, which unzipping the package strips.
 
-    The Ignition install path is "extract this into user-lib/pylib", and Python's
+    The Jython install path is "extract this onto the Python path", and Python's
     zipfile does not carry permissions across, so a freshly deployed binary is
     typically mode 644 and will not run.
     """

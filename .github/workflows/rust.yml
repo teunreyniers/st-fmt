@@ -10,19 +10,30 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  test:
 
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
+    - uses: Swatinem/rust-cache@v2
     # --workspace so that bindings/ffi is covered too; without it cargo only
     # looks at the root package and the C ABI goes untested.
     - name: Build
       run: cargo build --workspace --verbose
     - name: Run tests
       run: cargo test --workspace --verbose
-    - name: Build the Python package
-      run: python3 bindings/python/build.py
-    - name: Test the Python bindings
-      run: python3 -m unittest discover -s bindings/python/tests --verbose
+
+  lint:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: Swatinem/rust-cache@v2
+    - name: Check formatting
+      run: cargo fmt --all --check
+    # --all-targets so the lint reaches tests, examples and benches, not just
+    # the library and the binary.
+    - name: Clippy
+      run: cargo clippy --workspace --all-targets -- -D warnings
