@@ -14,7 +14,12 @@ nResult  := ComputeSomethingRatherLong(nFirstOperand, nSecondOperand, nThirdOper
 nOutcome := ComputeAnExtremelyLongFunctionName(
     nFirstOperandValue,
     nSecondOperandValue,
-    nThirdOperandValue,
+    nThirdOperandValue
+);
+nTotal   := AddUpTheseRatherLongOperandNames(
+    nFirstOperandValue,
+    nSecondOperandValue,
+    nThirdOperandValue
 );
 fbMixed(
     nPositional,

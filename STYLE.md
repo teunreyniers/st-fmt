@@ -62,7 +62,13 @@ bReady := bEnableFromOperatorPanel
 
 A call breaks when it does not fit **or** when it has more than two named
 parameters. Once broken: one argument per line, `:=` and `=>` aligned in a
-common column, a trailing comma, and `)` on its own line.
+common column, and `)` on its own line.
+
+**A trailing comma follows a named argument only.** It keeps a later parameter
+from showing up as a two-line diff, which is worth having in a `:=` list that
+grows a member at a time. A positional list ends on its last argument, because
+there the comma is stray punctuation that not every compiler accepts. A list
+mixing the two follows whichever kind its last argument is.
 
 ```
 fbShort(a := 1, b := 2);
@@ -71,6 +77,12 @@ fbNegated(
     bStart    := TRUE,
     nSpeed    := 100,
     NOT bDone => bReady,
+);
+
+nOutcome := ComputeAnExtremelyLongFunctionName(
+    nFirstOperandValue,
+    nSecondOperandValue,
+    nThirdOperandValue
 );
 ```
 
@@ -97,11 +109,12 @@ parenthesized *range* is a subrange and takes a space: `INT (0..100)`.
 
 Array initializers pack as many values per line as fit; structure initializers
 and enumerations break one per line with their `:=` aligned, on the same
-more-than-two rule as call parameters.
+more-than-two rule as call parameters. The trailing comma rule is the one calls
+follow: the named lists take one, the positional value table does not.
 
 ```
 aBig  : ARRAY [0..19] OF INT := [
-    1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000,
+    1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000
 ];
 stCfg : Config               := (
     nFirstSetting  := 1,
