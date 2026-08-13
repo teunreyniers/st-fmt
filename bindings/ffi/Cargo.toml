@@ -1,0 +1,17 @@
+[package]
+name = "st-fmt-ffi"
+version = "0.1.0"
+edition = "2024"
+description = "A C ABI over st-fmt, so foreign runtimes can call the formatter"
+license = "MIT"
+publish = false
+
+[lib]
+# Named st_fmt_c rather than st_fmt so the artifacts cannot collide with the
+# main crate's rlib in a shared target directory.
+name = "st_fmt_c"
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+st-fmt = { path = "../.." }

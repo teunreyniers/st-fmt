@@ -1,2 +1,9 @@
 /target
 /.cargo/
+
+# Build outputs of bindings/python/build.py: native binaries staged into the
+# package, and the wheel and Ignition archive assembled from them.
+/bindings/python/st_fmt/_native/*/
+/bindings/python/dist/
+__pycache__/
+*.pyc
