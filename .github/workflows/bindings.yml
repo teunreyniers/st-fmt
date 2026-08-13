@@ -29,9 +29,9 @@ jobs:
         python-version: [ "3.9", "3.13" ]
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - uses: Swatinem/rust-cache@v2
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -77,7 +77,7 @@ jobs:
         DEBIAN_FRONTEND=noninteractive apt-get install -y \
           python2.7 python3 curl git build-essential
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     # Edition 2024 needs Rust 1.85 or newer, which rules out a distro rustc.
     - name: Install Rust
@@ -116,9 +116,9 @@ jobs:
       JYTHON_VERSION: 2.7.3
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - uses: Swatinem/rust-cache@v2
-    - uses: actions/setup-java@v4
+    - uses: actions/setup-java@v5
       with:
         distribution: temurin
         java-version: '11'
