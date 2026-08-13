@@ -12,7 +12,7 @@ _native/windows-x86_64/st-fmt.exe
 The tag is `<system>-<machine>` with `system` in `linux`, `macos`, `windows` and
 `machine` in `x86_64`, `aarch64`, `i686`, as computed by `st_fmt._platform`.
 
-Nothing here is checked in — the contents are build output. A package staged for
+Nothing here is checked in: the contents are build output. A package staged for
 more than one platform simply holds more than one directory, and `_platform`
 picks at import time; see `build.py --keep` for assembling such a package from
 builds made on several machines.

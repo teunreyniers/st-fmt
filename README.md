@@ -17,9 +17,10 @@ Exit codes: `0` clean, `1` would-change (`--check` only), `2` parse or I/O error
 
 A directory argument is searched recursively for `.st`, `.iec` and `.scl` files,
 so `st-fmt .` formats a whole project and `st-fmt --check .` is the CI gate.
-Hidden entries such as `.git` are skipped, and so are symlinks — formatting is
-in place, and writing through a link would rewrite a file outside the tree. A
-file named directly on the command line is formatted whatever its extension.
+Hidden entries such as `.git` are skipped, and so are symlinks, because
+formatting is in place and writing through a link would rewrite a file outside
+the tree. A file named directly on the command line is formatted whatever its
+extension.
 
 ## Style
 
@@ -44,7 +45,7 @@ repos:
 ```
 
 `language: rust` means pre-commit builds the binary with cargo the first time
-the hook is installed — that machine needs network then, to fetch the pinned
+the hook is installed. That machine needs network then, to fetch the pinned
 grammar, but never the tree-sitter CLI. Two hooks are defined:
 
 | Hook | Effect |
@@ -100,13 +101,13 @@ cp .cargo/config.toml.example .cargo/config.toml
 ```
 
 `.cargo/config.toml` is gitignored, so the override stays local while everyone
-else — and CI — keeps building the pinned revision. To adopt grammar changes for
-real, push them and bump `rev` in `Cargo.toml`.
+else, CI included, keeps building the pinned revision. To adopt grammar changes
+for real, push them and bump `rev` in `Cargo.toml`.
 
 ## Calling it from Python
 
 `bindings/python` packages the formatter for **CPython 2.7, CPython 3.x, and
-Jython 2.7 — including Ignition**:
+Jython 2.7**:
 
 ```python
 import st_fmt
@@ -121,12 +122,23 @@ does not use one. `bindings/ffi` exposes the formatter as a plain C ABI, which
 instead. Nothing links against libpython, so one build serves every interpreter.
 
 ```sh
-python3 bindings/python/build.py     # writes a wheel and an Ignition archive
+python3 bindings/python/build.py     # writes a wheel and a Jython archive
 ```
 
-See [`bindings/python/README.md`](bindings/python/README.md) — in particular the
+See [`bindings/python/README.md`](bindings/python/README.md), in particular the
 note on Linux glibc floors, which decides whether the result runs on an older
-gateway.
+host.
+
+### Jython
+
+A Jython host generally has no pip: a third-party library is a directory on the
+Python path rather than something a package manager installs. So the build also
+writes a zip of the package tree, to be unpacked onto that path.
+
+Jython is also why the subprocess backend exists. A library that reaches native
+code through a CPython extension module cannot be imported under Jython at all,
+so the formatter ships as an executable the package spawns instead, and the
+same `st_fmt` API works there and on a developer's CPython.
 
 ## How it works
 
@@ -145,10 +157,10 @@ flowchart LR
 
 Three properties of the grammar shape the design:
 
-1. **Comments are `extras`.** They float to arbitrary positions in the tree — one
-   can land inside an assignment between `:=` and its right-hand side. Comment
-   placement is recovered from byte offsets by a cursor in `trivia.rs`, never
-   from tree shape.
+1. **Comments are `extras`.** They float to arbitrary positions in the tree, and
+   one can land inside an assignment between `:=` and its right-hand side.
+   Comment placement is recovered from byte offsets by a cursor in `trivia.rs`,
+   never from tree shape.
 2. **Whitespace is invisible.** There is no newline token, so blank lines are
    recovered by comparing source positions.
 3. **`;` belongs to `block`, not to the statement.** A statement node's range
@@ -171,4 +183,30 @@ is checked four ways:
 3. **semantic preservation**: the parse tree is unchanged, ignoring comments and
    inserted empty statements
 4. **comment conservation**: no comment dropped, duplicated or altered
+
+### Continuous integration
+
+Two workflows run on every push and pull request. `rust.yml` builds and tests
+the workspace and gates `cargo fmt` and `clippy`. `bindings.yml` runs the Python
+suite once per interpreter the package claims:
+
+| Job | Interpreter | Backend exercised |
+|---|---|---|
+| `cpython3` | CPython 3.9 and 3.13 | `ctypes` and `subprocess` |
+| `cpython27` | CPython 2.7 | `ctypes` and `subprocess` |
+| `jython` | Jython 2.7 | `subprocess` |
+
+Each job asserts which backend actually loaded before running the suite. The
+tests skip rather than fail when no native build is staged, so without that
+assertion a job that staged nothing would pass with everything skipped.
+
+`cpython27` builds the Rust code inside the same container it tests in. The
+shared library and the interpreter that loads it then share a glibc; a library
+built on a newer host fails to load, and that failure is swallowed and reported
+as a missing backend rather than an error.
+
+The Jython job runs `test_st_fmt.py` only. `test_package.py` inspects the built
+wheel and archive, which does not depend on the interpreter, and one of its
+cases re-runs `sys.executable`, which is not a usable program under
+`java -jar`.
 

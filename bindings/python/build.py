@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Builds the st-fmt Python package: a wheel, and an archive for Ignition.
+"""Builds the st-fmt Python package: a wheel, and an archive for Jython.
 
 Run it with any Python 3; it uses nothing but the standard library and cargo.
 
@@ -9,7 +9,7 @@ Run it with any Python 3; it uses nothing but the standard library and cargo.
 That produces, in ``bindings/python/dist/``:
 
     st_fmt-<version>-py2.py3-none-<platform>.whl   pip install, CPython 2.7+
-    st_fmt-<version>-ignition-<tag>.zip            unzip into user-lib/pylib
+    st_fmt-<version>-jython-<tag>.zip              unzip onto the Jython path
 
 The wheel is written by hand rather than through setuptools. There is no
 extension module to compile -- the package is pure Python around a shared
@@ -68,7 +68,7 @@ TRIPLE_TAGS = {
 }
 
 # Building on the host links against the host's glibc, and a binary will not run
-# on anything older -- an Ignition gateway on RHEL 8 rejects an Ubuntu 24.04
+# on anything older -- a Jython host on RHEL 8 rejects an Ubuntu 24.04
 # build outright. These two build inside a container instead:
 #
 #   portable  an old-glibc Debian. Produces both artifacts; the floor lands
@@ -166,12 +166,12 @@ def main(argv=None):
 
     ensure_dir(args.out)
     wheel = build_wheel(version, staged, args.out)
-    archive = build_ignition_archive(version, staged, args.out)
+    archive = build_jython_archive(version, staged, args.out)
 
     print("")
     print("st-fmt %s, platforms: %s" % (version, ", ".join(staged)))
-    print("  wheel:    %s" % os.path.relpath(wheel, REPO))
-    print("  ignition: %s" % os.path.relpath(archive, REPO))
+    print("  wheel:  %s" % os.path.relpath(wheel, REPO))
+    print("  jython: %s" % os.path.relpath(archive, REPO))
     return 0
 
 
@@ -372,7 +372,7 @@ def build_wheel(version, tags, out_dir):
             platform_tags.append(wheel_platform)
 
     # A wheel filename carries one platform. Several staged platforms only make
-    # sense in the Ignition archive, which is unzipped by hand; for the wheel,
+    # sense in the Jython archive, which is unzipped by hand; for the wheel,
     # `any` is the honest tag -- it says "this file is not specific to one
     # platform", which is true once it carries them all.
     platform = platform_tags[0] if len(platform_tags) == 1 else "any"
@@ -436,56 +436,22 @@ def wheel_wheelfile(platform):
     ])
 
 
-def build_ignition_archive(version, tags, out_dir):
-    """Writes the drop-in archive for Ignition's user-lib/pylib.
+def build_jython_archive(version, tags, out_dir):
+    """Writes the drop-in archive for a Jython host's third-party Python path.
 
-    Ignition has no pip: a library is a directory on the Jython path. So this is
-    just the package tree, plus a note saying where to put it.
+    A Jython host generally has no pip: a library is a directory on the Python
+    path. So this is just the package tree, unzipped where the host imports
+    from; the README covers placement.
     """
     suffix = tags[0] if len(tags) == 1 else "multi"
-    path = os.path.join(out_dir, "st_fmt-%s-ignition-%s.zip" % (version, suffix))
+    path = os.path.join(out_dir, "st_fmt-%s-jython-%s.zip" % (version, suffix))
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
         for name, disk in package_files(tags):
             with open(disk, "rb") as handle:
                 data = handle.read()
             add(archive, name, data, executable=is_native_artifact(name))
-        add(archive, "INSTALL.txt", IGNITION_INSTALL.encode("utf-8"))
         add(archive, "LICENSE", read_license().encode("utf-8"))
     return path
-
-
-IGNITION_INSTALL = """\
-st-fmt for Ignition
-===================
-
-1. Stop the Ignition gateway, or be ready to restart it: Jython caches imports.
-
-2. Extract the `st_fmt` directory from this archive into the gateway's
-   third-party Python path:
-
-       Linux:   /usr/local/bin/ignition/user-lib/pylib/st_fmt
-       Windows: C:\\Program Files\\Inductive Automation\\Ignition\\user-lib\\pylib\\st_fmt
-
-   Extract, do not copy the .zip in -- the native binary inside cannot be
-   executed from within a zip.
-
-3. On Linux, make sure the binary is executable. Unzipping usually keeps the
-   mode, and st_fmt chmods it on first use if it does not, but a read-only
-   pylib will defeat that:
-
-       chmod +x .../user-lib/pylib/st_fmt/_native/*/st-fmt
-
-4. Restart the gateway, then from a script console:
-
-       import st_fmt
-       print st_fmt.backend_name()      # 'subprocess' under Jython
-       print st_fmt.format_source("if a then x:=1; end_if;")
-
-If pylib is read-only or on a share that will not hold an executable, put the
-st-fmt binary anywhere the gateway user can run it and set ST_FMT_BINARY to its
-path, or call st_fmt.select_backend("subprocess", "/opt/st-fmt/st-fmt") once at
-startup.
-"""
 
 
 def read_readme():
