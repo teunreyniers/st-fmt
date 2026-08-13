@@ -14,7 +14,7 @@
 
 use tree_sitter::Node;
 
-use super::{Formatter, source::named_children};
+use super::{Formatter, pad, source::named_children};
 use crate::doc::Doc;
 use crate::style;
 use crate::trivia::blank_line_between;
@@ -465,11 +465,6 @@ impl Formatter<'_> {
             .collect();
         Doc::join(Doc::text(", "), names)
     }
-}
-
-fn pad(text: &str, width: usize) -> String {
-    let len = text.chars().count();
-    format!("{text}{}", " ".repeat(width.saturating_sub(len)))
 }
 
 fn token<'t>(node: Node<'t>, kind: &str) -> Option<Node<'t>> {

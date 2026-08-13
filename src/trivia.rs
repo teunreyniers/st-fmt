@@ -126,6 +126,20 @@ impl Trivia {
     pub fn peek(&self) -> Option<&Comment> {
         self.comments.get(self.cursor)
     }
+
+    /// The cursor position, for a build that has to be undone.
+    ///
+    /// The comment list itself never changes after collection, so this one
+    /// index is the whole of the cursor's state.
+    pub fn checkpoint(&self) -> usize {
+        self.cursor
+    }
+
+    /// Rewinds to a [`Trivia::checkpoint`]: every comment handed out since is
+    /// handed out again.
+    pub fn restore(&mut self, checkpoint: usize) {
+        self.cursor = checkpoint;
+    }
 }
 
 fn build_comment(node: Node<'_>, source: &str) -> Comment {
@@ -198,6 +212,26 @@ mod tests {
         assert_eq!(t.total(), 2);
         assert_eq!(t.comments[0].text, "// one");
         assert_eq!(t.comments[1].text, "(* two *)");
+    }
+
+    #[test]
+    fn a_restored_cursor_hands_the_same_comments_out_again() {
+        // What makes the speculative build the alignment pass relies on exact:
+        // measuring a document drains trivia, and rewinding must put every
+        // comment back within reach.
+        let mut t = trivia_of("// one\nx := 1;\n// two\ny := 2;\n");
+        let checkpoint = t.checkpoint();
+
+        let taken = t.take_before(usize::MAX);
+        assert_eq!(taken.len(), 2);
+        assert!(t.fully_drained());
+
+        t.restore(checkpoint);
+        assert!(!t.fully_drained());
+        let again = t.take_before(usize::MAX);
+        assert_eq!(again.len(), 2);
+        assert_eq!(again[0].text, "// one");
+        assert_eq!(again[1].text, "// two");
     }
 
     #[test]

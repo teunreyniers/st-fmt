@@ -168,6 +168,34 @@ impl<'a> Formatter<'a> {
         Doc::text(self.text(node).to_owned())
     }
 
+    /// Builds a document for its measurements only, undoing every effect.
+    ///
+    /// Column alignment has to know how wide a document is *before* the
+    /// documents around it have been built, and building one hands out
+    /// comments. Everything the formatter carries between nodes is a cursor, so
+    /// a speculative build rewinds exactly — and the destructuring below is
+    /// what makes that claim fail to compile the day a field is added.
+    ///
+    /// `unhandled` is deliberately not rewound: a speculative build only ever
+    /// visits nodes the real build visits too, so the set it reports is the
+    /// same either way.
+    pub fn speculative<T>(&mut self, build: impl FnOnce(&mut Formatter<'a>) -> T) -> T {
+        let Formatter {
+            source: _,
+            trivia,
+            last_comment_end,
+            unhandled: _,
+        } = self;
+        let checkpoint = trivia.checkpoint();
+        let last_comment_end = *last_comment_end;
+
+        let measured = build(self);
+
+        self.trivia.restore(checkpoint);
+        self.last_comment_end = last_comment_end;
+        measured
+    }
+
     /// Emits every comment starting before `byte` as leading trivia, each on
     /// its own line.
     ///
@@ -208,6 +236,16 @@ impl<'a> Formatter<'a> {
     pub fn comment_doc(&self, comment: &Comment) -> Doc {
         Doc::text(comment.text.clone())
     }
+}
+
+/// Right-pads `text` with spaces to `width` columns.
+///
+/// The shared primitive of every column-alignment pass: declarations, call
+/// parameters, enum members and runs of assignments all measure first and pad
+/// here. Measured in characters, not bytes, so a non-ASCII identifier lines up.
+pub(super) fn pad(text: &str, width: usize) -> String {
+    let len = text.chars().count();
+    format!("{text}{}", " ".repeat(width.saturating_sub(len)))
 }
 
 /// True for the statement kinds that carry their own terminator keyword, and so

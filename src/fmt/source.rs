@@ -10,13 +10,17 @@
 //! top-level declarations are set two blank lines apart, and a statement
 //! following a closed `END_IF` or `END_WHILE` starts below a blank line.
 //!
+//! A block is also measured before it is emitted, because a run of consecutive
+//! assignments shares one column and the width of that column depends on
+//! statements further down the list. See [`super::stmt::alignment_runs`].
+//!
 //! Region pragmas are the one construct whose nesting is not in the tree: to
 //! the grammar `{region …}` and `{endregion}` are two unrelated siblings, so
 //! [`RegionNesting`] recovers the level they bracket while walking the run.
 
 use tree_sitter::Node;
 
-use super::stmt::{Region, region};
+use super::stmt::{self, Align, Region, region};
 use super::{Formatter, is_compound_statement};
 use crate::doc::Doc;
 use crate::trivia::blank_line_between;
@@ -83,6 +87,9 @@ impl Formatter<'_> {
     /// from one belonging to the construct that closes the block.
     pub fn block(&mut self, node: Node<'_>, bound: usize) -> Doc {
         let items = named_children(node);
+        // Measured across the whole block before anything is emitted: a run's
+        // column depends on statements the loop below has not reached yet.
+        let columns = stmt::alignment_runs(self, &items);
         let mut nesting = RegionNesting::new();
 
         for (i, item) in items.iter().enumerate() {
@@ -104,7 +111,7 @@ impl Formatter<'_> {
             let forced = (after_compound && item.kind() != "pragma").then_some(Doc::BlankLine);
 
             let marker = self.region_aware_separator(&mut nesting, *item, prev_end, i == 0, forced);
-            let statement = self.statement(*item, next_start);
+            let statement = self.statement(*item, next_start, columns[i]);
             nesting.push(statement);
 
             if marker == Some(Region::Open) {
@@ -121,8 +128,14 @@ impl Formatter<'_> {
     }
 
     /// One statement plus its terminator and any comment trailing it.
-    fn statement(&mut self, node: Node<'_>, next_start: usize) -> Doc {
-        let doc = self.node(node);
+    ///
+    /// `align` carries the columns measured across the statement's alignment
+    /// run; it is [`Align::default`] for everything that is not an assignment.
+    fn statement(&mut self, node: Node<'_>, next_start: usize, align: Align) -> Doc {
+        let doc = match node.kind() {
+            "assignment" => stmt::aligned_assignment(self, node, align),
+            _ => self.node(node),
+        };
         let terminator = self.terminator_for(node);
         // The terminator sits between the statement and its trailing comment,
         // so the comment is looked up from the row the statement ended on.

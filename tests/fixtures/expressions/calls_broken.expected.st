@@ -10,7 +10,7 @@ fbThree(
     nSpeed := 100,
     bDone  => bReady,
 );
-nResult := ComputeSomethingRatherLong(nFirstOperand, nSecondOperand, nThirdOperand, nFourth);
+nResult  := ComputeSomethingRatherLong(nFirstOperand, nSecondOperand, nThirdOperand, nFourth);
 nOutcome := ComputeAnExtremelyLongFunctionName(
     nFirstOperandValue,
     nSecondOperandValue,
