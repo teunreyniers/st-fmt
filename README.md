@@ -26,8 +26,8 @@ extension.
 
 See [STYLE.md](STYLE.md). Briefly: 100 columns, 4-space indent, UPPERCASE
 keywords and elementary types, identifiers preserved, `:` and `:=` column-aligned
-in declarations, and long expressions wrapped with the operator leading each
-continuation line.
+in declarations and across runs of consecutive assignments, and long expressions
+wrapped with the operator leading each continuation line.
 
 st-fmt is zero-config. The constants live in `src/style.rs`.
 

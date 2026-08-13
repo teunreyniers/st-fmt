@@ -110,6 +110,39 @@ stCfg : Config               := (
 );
 ```
 
+## Statements
+
+**A run of consecutive assignments aligns its values.** Both the target column
+and the operator column are padded, so a run mixing `:=` and `REF=` still starts
+every right-hand side in one place.
+
+```
+pTarget     REF= pSource;
+motor.speed :=   100;
+buffer[i]   :=   0;
+```
+
+**A run is broken by a blank line or by any other statement** a call or an `IF`
+ends it. Comments stay inside the run, so adding a note never shifts the column
+beneath it, and an `{attribute …}` pragma stays too. A region marker does break
+it, because it moves the column that the run would share.
+
+```
+nState         := 1;
+// checked against the operator panel
+rSpeedSetpoint := 12.5;
+
+nUnrelated := 0;
+```
+
+Every body is measured on its own, so two `CASE` branches, or the two halves of
+an `IF`, never share a column.
+
+There is deliberately **no guard on the padding**: the widest target sets the
+column however wide, the same way declarations behave. A long name can therefore
+push a neighbour's value past 100 columns and make it wrap, which is the price
+of the column being predictable from the run alone.
+
 ## Control flow
 
 **The trailing keyword breaks with its condition.** `THEN`, `DO` and `OF` drop to

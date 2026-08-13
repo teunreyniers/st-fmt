@@ -17,7 +17,7 @@
 
 use tree_sitter::Node;
 
-use super::{Formatter, source::named_children};
+use super::{Formatter, pad, source::named_children};
 use crate::doc::Doc;
 use crate::style;
 use crate::trivia::blank_line_between;
@@ -484,11 +484,6 @@ fn measure(source: &str, group: &[Node<'_>]) -> Widths {
     }
 
     widths
-}
-
-fn pad(text: &str, width: usize) -> String {
-    let len = text.chars().count();
-    format!("{text}{}", " ".repeat(width.saturating_sub(len)))
 }
 
 /// The canonical spelling of a section keyword, taken from the node kind.

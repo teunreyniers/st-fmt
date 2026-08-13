@@ -17,10 +17,10 @@ IF NOT _inizialized THEN
     SetMessage('Run method called without initialization. Init method needs to be called first.');
 END_IF
 
-Run := CurrentStep = _scan_index AND State = TestState.Running;
-OnEntry := Run AND _step_previous = CurrentStep;
+Run            := CurrentStep = _scan_index AND State = TestState.Running;
+OnEntry        := Run AND _step_previous = CurrentStep;
 _step_previous := CurrentStep;
-pos := _scan_index;
+pos            := _scan_index;
 IF Run THEN
     _delay := duration;
 END_IF
