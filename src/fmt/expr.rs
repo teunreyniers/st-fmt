@@ -224,6 +224,11 @@ pub fn call(f: &mut Formatter<'_>, node: Node<'_>) -> Doc {
     let named_count = parsed.iter().filter(|p| p.label.is_some()).count();
     let force = named_count > NAMED_PARAM_BREAK_THRESHOLD;
 
+    // A trailing comma marks a named-parameter list as extensible, but after a
+    // positional argument it is stray punctuation, so it follows the last
+    // argument only when that argument is named.
+    let trailing_comma = parsed.last().is_some_and(|p| p.label.is_some());
+
     let mut items = Vec::new();
     for (i, param) in parsed.into_iter().enumerate() {
         if i > 0 {
@@ -232,9 +237,11 @@ pub fn call(f: &mut Formatter<'_>, node: Node<'_>) -> Doc {
         }
         items.push(param_doc(f, param, label_width));
     }
-    // The grammar allows a trailing comma, and adding one keeps a later
+    // The grammar allows a trailing comma, and adding one keeps a later named
     // argument from showing up as a two-line diff.
-    items.push(Doc::if_break(Doc::text(","), Doc::Nil));
+    if trailing_comma {
+        items.push(Doc::if_break(Doc::text(","), Doc::Nil));
+    }
 
     let open = if force { Doc::HardLine } else { Doc::SoftLine };
     let close = if force { Doc::HardLine } else { Doc::SoftLine };

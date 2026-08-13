@@ -318,11 +318,9 @@ impl Formatter<'_> {
             .enumerate()
             .map(|(i, item)| {
                 let doc = self.initial_value(item);
-                let comma = if i == last {
-                    Doc::if_break(Doc::text(","), Doc::Nil)
-                } else {
-                    Doc::text(",")
-                };
+                // The values are positional, so the list never ends on a
+                // trailing comma, broken or not.
+                let comma = if i == last { Doc::Nil } else { Doc::text(",") };
                 Doc::concat([doc, comma])
             })
             .collect();
