@@ -218,10 +218,10 @@ END_CASE
 
 ## Program organization units
 
-**Containers stay flat; leaf contents indent.** `VAR`, `STRUCT`, `METHOD` and the
-POU keywords all sit at their parent's column, only variable declarations,
-struct fields and statements move in a level. Deeply nested ST therefore never
-marches off the right margin.
+**Containers stay flat; leaf contents indent.** `VAR`, `STRUCT`, `UNION`,
+`METHOD` and the POU keywords all sit at their parent's column, only variable
+declarations, struct/union fields and statements move in a level. Deeply
+nested ST therefore never marches off the right margin.
 
 ```
 FUNCTION_BLOCK PUBLIC FB_Motor EXTENDS FB_Base IMPLEMENTS I_Motor

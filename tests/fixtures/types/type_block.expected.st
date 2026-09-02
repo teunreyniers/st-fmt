@@ -5,6 +5,11 @@ Point : STRUCT
     label : STRING[32] := '';
 END_STRUCT
 
+Overlay : UNION
+    bits  : DWORD;
+    value : REAL;
+END_UNION
+
 Meters : INT (0..100);
 Alias : ARRAY [0..9] OF INT;
 Color : (Red, Green, Blue);

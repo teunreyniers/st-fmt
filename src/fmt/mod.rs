@@ -127,6 +127,7 @@ impl<'a> Formatter<'a> {
             "type_declaration" => self.type_declaration(node),
             "type_definition" => self.type_definition(node),
             "struct_definition" => self.struct_definition(node),
+            "union_definition" => self.union_definition(node),
             "enum_definition" => self.enum_definition(node),
 
             // Declarations

@@ -498,7 +498,12 @@ fn token<'t>(node: Node<'t>, kind: &str) -> Option<Node<'t>> {
 ///
 /// `variable_declaration` and `struct_field` have identical shapes — optional
 /// pragmas, a name, an optional `AT` location, a type and an optional initial
-/// value — so both are laid out by the same pass.
+/// value — so both are laid out by the same pass. `union_field` is the same
+/// shape minus the `AT` location and initial value, both of which simply
+/// come back `None` for it.
 fn is_aligned_declaration(kind: &str) -> bool {
-    matches!(kind, "variable_declaration" | "struct_field")
+    matches!(
+        kind,
+        "variable_declaration" | "struct_field" | "union_field"
+    )
 }

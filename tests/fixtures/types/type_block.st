@@ -5,6 +5,11 @@ y : real;
 label : STRING[32] := '';
 end_struct
 
+Overlay : union
+bits : dword;
+value : real;
+end_union
+
 Meters : INT (0..100);
 Alias : ARRAY [0..9] OF int;
 Color : (Red, Green, Blue);
