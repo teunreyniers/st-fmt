@@ -273,9 +273,9 @@ impl Formatter<'_> {
             parts.push(self.node(initial));
         }
 
-        // Vendors omit the `;` after END_STRUCT but write it after an
-        // enumeration or an alias; that convention is kept.
-        if definition.kind() != "struct_definition" {
+        // Vendors omit the `;` after END_STRUCT/END_UNION but write it after
+        // an enumeration or an alias; that convention is kept.
+        if !matches!(definition.kind(), "struct_definition" | "union_definition") {
             parts.push(Doc::text(";"));
         }
         Doc::concat(parts)
@@ -293,6 +293,25 @@ impl Formatter<'_> {
             Doc::concat([Doc::HardLine, body]).indent(),
             Doc::HardLine,
             Doc::text("END_STRUCT"),
+        ])
+    }
+
+    /// `UNION … END_UNION`, with its fields aligned like a VAR section.
+    ///
+    /// A union field has no `AT` location and no initial value — members
+    /// overlay the same memory — but it shares the rest of its shape with
+    /// `struct_field`, so the same alignment pass lays it out.
+    pub fn union_definition(&mut self, node: Node<'_>) -> Doc {
+        let end = token(node, "end_union");
+        let bound = end.map_or(node.end_byte(), |t| t.start_byte());
+        let fields = named_children(node);
+        let body = self.aligned_declarations(&fields, bound);
+
+        Doc::concat([
+            Doc::text("UNION"),
+            Doc::concat([Doc::HardLine, body]).indent(),
+            Doc::HardLine,
+            Doc::text("END_UNION"),
         ])
     }
 
